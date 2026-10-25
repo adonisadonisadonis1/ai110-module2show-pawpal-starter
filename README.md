@@ -42,6 +42,29 @@ pip install -r requirements.txt
 6. Connect your logic to the Streamlit UI in `app.py`.
 7. Refine UML so it matches what you actually built.
 
+## Streamlit Integration
+
+Run the connected UI from the repository directory:
+
+```bash
+source .venv/bin/activate
+streamlit run app.py
+```
+
+The app creates `st.session_state.owner` only when the key is absent, so the same
+Owner, its Pets, and their Tasks survive widget-triggered reruns. Save owner details,
+submit **Add pet**, then select that pet in the task form and submit **Add task**.
+The forms call `Owner.add_pet()` and `Pet.add_task()` with real backend objects.
+Pet and task tables render after submission so changes appear immediately.
+**Generate schedule** calls the existing Scheduler for all of the owner's pets.
+A displayed schedule refreshes from the current model after subsequent edits.
+
+Session state is temporary: a new session or browser reload can reset it. This
+phase adds no database or new scheduling rules. The integration tests exercise
+pet/task creation, selected-pet assignment, schedule display, state across reruns,
+and blank-input handling with Streamlit's AppTest. All seven backend/UI tests pass
+with `python -m pytest`.
+
 ## Phase 2 Implementation Summary
 
 `pawpal_system.py` implements four in-memory dataclasses. `Task` stores a description
@@ -57,7 +80,7 @@ This is a basic CLI-first implementation. Frequency is descriptive metadata;
 there is no date-based recurrence engine. Priority and owner preferences are stored
 for later scheduling refinements but do not affect selection yet. Scheduled times
 are ordering labels; overlap resolution is not implemented. State lasts only for
-the current process. The Streamlit starter is unchanged.
+the current process. The Streamlit starter was unchanged during Phase 2; the integration above connects it in the next phase.
 
 Run the demo from the repository directory:
 
