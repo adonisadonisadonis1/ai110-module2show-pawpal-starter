@@ -21,7 +21,7 @@ The initial design uses four classes:
 
 One owner can have zero or more pets, and each pet can have zero or more tasks. Each pet belongs to one owner and each task belongs to one pet in this design. A scheduler references one owner and uses that owner's pets and tasks. Its plan refers to existing Task objects rather than copying them. These ownership rules are design contracts; validation is deferred.
 
-Pet and Task use Python dataclasses, as do Owner and Scheduler to declare their attributes without custom constructors. Each collection uses default_factory=list so instances do not share mutable lists. The Mermaid draft is saved in diagrams/uml_draft.mmd and mirrored in the starter's diagrams/uml.mmd location. All business methods are empty stubs; scheduling behavior and UI integration are outside Phase 1.
+Pet and Task use Python dataclasses, as do Owner and Scheduler to declare their attributes without custom constructors. Each collection uses default_factory=list so instances do not share mutable lists. The Mermaid draft is saved in diagrams/uml_draft.mmd and mirrored in the starter's diagrams/uml.mmd location. At that Phase 1 checkpoint, all business methods were empty stubs; later phases implemented behavior and integrated the UI.
 
 **b. Design changes**
 
@@ -33,7 +33,15 @@ Phase 1 AI skeleton review (before any implementation):
 - Scanning all pets and tasks is a potential bottleneck for a large collection, but it is reasonable for this small personal app. No indexing, persistence, recurring-task engine, or additional classes are needed for the initial blueprint.
 - Empty methods intentionally do not validate durations, enforce ownership, rank tasks, or handle time limits yet. Those are later implementation concerns, not completed functionality.
 
-The UML and Python signatures were checked together after these design refinements. No scheduling logic was implemented, and sections for later phases remain unanswered.
+The draft UML and Python signatures were checked together at the Phase 1 checkpoint before scheduling logic was implemented.
+
+The final architecture adds Task.scheduled_time, frequency, and due_date;
+Owner.get_all_tasks(); and Scheduler sorting, filtering, completion, and conflict
+methods. Task.mark_complete() now returns an optional successor, while
+Scheduler.mark_task_complete() validates ownership and registers that successor.
+The final UML is saved in diagrams/uml_final.mmd and mirrored in diagrams/uml.mmd;
+diagrams/uml_draft.mmd preserves the starting design. Phase 6 connects these
+existing methods to the UI without changing backend scheduling rules.
 
 ---
 
@@ -96,6 +104,21 @@ keeps knowledge of the pets in Owner and makes the scheduler work across pets.
 I also accepted readable terminal rows with the time, pet name, description,
 duration, priority, and frequency, and one-line method docstrings.
 
+Automatic multi-file editing was effective for keeping class implementations,
+CLI examples, tests, and documentation aligned. Separate planning chats for
+Phase 4 algorithms and Phase 5 testing kept algorithm choices apart from test
+coverage discussions. The algorithm chat compared grouping and pairwise conflict
+checks; the testing chat challenged happy-path coverage with budget boundaries,
+stale plans, and leap-day recurrence. Keeping those reviews focused made it easier
+to evaluate suggestions against one phase's goal instead of mixing new features
+into verification.
+
+In Phase 6, AI compared the backend with the original UML and identified missing
+attributes, aggregation, optional return types, and recurrence relationships.
+It also helped replace starter README prompts with instructions describing
+features that actually exist. Streamlit AppTest was useful for checking that UI
+filters, warnings, and completion call the existing logic correctly.
+
 **b. Judgment and verification**
 
 The Phase 1 blueprint exposed each pet's tasks but lacked an Owner method for
@@ -113,6 +136,23 @@ Owner.get_all_tasks() and confirms Scheduler calls it and includes both pets'
 tasks. Other checks cover completed/over-budget tasks and an invalid edit that
 must leave the original task unchanged. The captured demo output is in README.md.
 The Streamlit UI and Phase 1 UML draft were not changed in Phase 2.
+
+One suggestion I modified was the recurrence policy from the algorithm planning
+chat: it proposed preserving a weekly task's weekday after late completion. I kept
+the simpler rule of advancing from the later of due date and completion date,
+creating only one successor, and documented that late completion can shift the
+weekday. This kept the initial design small and made its behavior explicit.
+I accepted the later suggestion to simplify conflict detection by iterating pets
+and tasks directly, removing a separate task-to-pet mapping. The shared-task edge
+case from that review became an ownership guard and a regression test.
+
+Human oversight means checking outcomes, not just accepting plausible code.
+The explicit phase boundaries, expected task orders and dates, actual pytest
+output, and honest README limits were the acceptance criteria. The UI originally
+said recurrence was unimplemented even after the backend supported it; Phase 6
+removed that stale text and added completion controls using the Scheduler API.
+The final UI tests verify a successor is created for the right pet and can be
+viewed on the following day.
 
 ---
 
@@ -140,7 +180,9 @@ created occurrence and confirm the correct pet holds that exact new object.
 The complete python -m pytest run passed 34 tests, including the earlier algorithm
 and Streamlit integration tests. No failures occurred during the Phase 5 runs,
 and no backend or UI changes were needed. The successful full terminal output is
-saved in the README.
+saved in the README. Phase 6 adds two UI integration checks, bringing the final
+suite to 36 passing tests. These exercise sorted/filtered task views, warnings,
+recurring completion, future-date plans, and task due-date entry.
 
 **b. Confidence**
 
@@ -159,12 +201,30 @@ features or UML revisions were added during this testing phase.
 
 **a. What went well**
 
-- What part of this project are you most satisfied with?
+The strongest result is that the CLI and UI share the same backend. Owner provides
+one aggregation method across pets, Scheduler owns planning decisions, and the UI
+only collects input and presents results. The final interface exposes the sorting,
+filtering, conflict warnings, and recurrence that were already verified in the CLI.
+The history of the draft UML, final UML, tests, and reflections makes the design's
+evolution understandable to another reader.
 
 **b. What you would improve**
 
-- If you had another iteration, what would you improve or redesign?
+A future iteration could add saved data, task editing in the UI, duration-overlap
+checks, and clearer treatment of overdue care. Before adding preference ranking or
+timezone support, I would define concrete examples and expected behavior, then
+extend tests. I would also run real-browser usability checks with a pet owner and
+measure larger task collections. These are future improvements, not features
+claimed by the current app.
 
 **c. Key takeaway**
 
-- What is one important thing you learned about designing systems or working with AI on this project?
+Being the lead architect means setting scope, choosing understandable rules,
+and insisting that the diagram, code, UI, tests, and documentation describe the
+same system. AI can quickly propose algorithms and make coordinated edits, but
+speed does not settle product choices such as recurrence policy or whether a
+warning should block a schedule. Those decisions need explicit tradeoffs and
+observable acceptance checks. Separate phase-focused chats helped keep each
+review narrow; the main implementation remained responsible for integrating and
+verifying the decisions. A passing test suite supports confidence, while honest
+limits prevent a polished interface from promising behavior the system lacks.

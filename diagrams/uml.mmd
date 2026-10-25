@@ -1,12 +1,14 @@
 classDiagram
-    %% Phase 1 working blueprint; methods are empty Python stubs.
+    %% Final architecture: mirrors pawpal_system.py.
     class Owner {
         +str name
         +int available_minutes
         +List~str~ preferences
         +List~Pet~ pets
+        +__post_init__() None
         +add_pet(Pet pet) None
         +get_pets() List~Pet~
+        +get_all_tasks() List~Task~
     }
     class Pet {
         +str name
@@ -20,20 +22,30 @@ classDiagram
         +int duration_minutes
         +Literal~low_medium_high~ priority
         +bool completed
+        +time scheduled_time
+        +str frequency
+        +date due_date
+        +__post_init__() None
         +update(str title, int duration_minutes, Literal~low_medium_high~ priority) None
-        +mark_complete() None
+        +mark_complete(Optional~date~ completed_on=None) Optional~Task~
     }
     class Scheduler {
         +Owner owner
         +List~Task~ daily_plan
-        +generate_daily_plan() List~Task~
+        +sort_by_time(Optional~List~ tasks=None) List~Task~
+        +filter_tasks(Optional~str~ pet_name=None, Optional~bool~ completed=None, Optional~date~ on_date=None) List~Task~
+        +mark_task_complete(Task task, Optional~date~ completed_on=None) Optional~Task~
+        +detect_conflicts(Optional~date~ on_date=None) List~str~
+        +generate_daily_plan(Optional~date~ on_date=None) List~Task~
         +get_daily_plan() List~Task~
         +get_pet_for_task(Task task) Optional~Pet~
         +explain_plan() str
     }
     Owner "1" o-- "0..*" Pet : has pets
-    Pet "1" o-- "0..*" Task : has care tasks
-    Scheduler "0..1" --> "1" Owner : plans for
-    Scheduler "0..1" --> "0..*" Task : selects existing tasks
-    note for Task "priority is low, medium, or high"
-    note for Scheduler "Uses time budget, priorities, and preferences; logic deferred"
+    Pet "1" o-- "0..*" Task : owns occurrences
+    Scheduler "0..*" --> "1" Owner : retrieves all tasks
+    Scheduler "0..*" --> "0..*" Task : selects existing occurrences
+    Task ..> Task : creates next occurrence
+    note for Owner "available_minutes is a nonnegative integer; preferences stored only"
+    note for Task "priority: low/medium/high; frequency: daily/weekly/once; due_date defaults to today"
+    note for Scheduler "sort_by_time accepts Optional List of Task; completion attaches successor to owning pet"

@@ -1,6 +1,6 @@
 """Streamlit interface backed by the session's PawPal owner and pets."""
 
-from datetime import time
+from datetime import date, time
 
 import streamlit as st
 
@@ -52,6 +52,10 @@ else:
     st.info("Add a pet to start scheduling care tasks.")
 
 st.subheader("Tasks")
+plan_date = st.date_input("Plan date", value=date.today(), key="plan_date")
+scheduler = Scheduler(owner)
+if "completion_notice" in st.session_state:
+    st.success(st.session_state.pop("completion_notice"))
 if pets:
     with st.form("task_form", clear_on_submit=True):
         pet_index = st.selectbox(
@@ -65,45 +69,85 @@ if pets:
         priority = st.selectbox("Priority", ["low", "medium", "high"], index=2, key="priority")
         scheduled_time = st.time_input("Scheduled time", value=time(9), key="scheduled_time")
         frequency = st.selectbox("Frequency", ["daily", "weekly", "once"], key="frequency")
-        st.caption("Frequency is recorded as a label; automatic recurrence is not implemented.")
+        due_date = st.date_input("Due date", value=date.today(), key="due_date")
+        st.caption("Completing daily or weekly care creates its next occurrence.")
         if st.form_submit_button("Add task"):
             try:
                 task = Task(
                     title=task_title.strip(), duration_minutes=int(duration),
                     priority=priority, scheduled_time=scheduled_time, frequency=frequency,
+                    due_date=due_date,
                 )
                 pets[pet_index].add_task(task)
                 st.success(f"Added {task.title} for {pets[pet_index].name}.")
             except ValueError as error:
                 st.error(str(error))
 
+    pet_filter = st.selectbox(
+        "Filter by pet", options=[None] + list(dict.fromkeys(pet.name for pet in pets)),
+        format_func=lambda name: "All pets" if name is None else name, key="pet_filter",
+    )
+    status_filter = st.selectbox("Filter by status", ["All", "Pending", "Completed"], key="status_filter")
+    all_dates = st.checkbox("Show all dates", key="all_dates")
+    completed_filter = {"All": None, "Pending": False, "Completed": True}[status_filter]
+    selected_date = None if all_dates else plan_date
+    visible_tasks = scheduler.sort_by_time(scheduler.filter_tasks(
+        pet_name=pet_filter, completed=completed_filter, on_date=selected_date,
+    ))
+    pending_tasks = [task for task in visible_tasks if not task.completed]
+    if pending_tasks:
+        with st.form("completion_form"):
+            completion_index = st.selectbox(
+                "Task to complete", options=range(len(pending_tasks)), key="completion_task",
+                format_func=lambda index: (
+                    f"{index + 1}. {scheduler.get_pet_for_task(pending_tasks[index]).name}: "
+                    f"{pending_tasks[index].title} "
+                    f"({pending_tasks[index].due_date} {pending_tasks[index].scheduled_time:%H:%M})"
+                ),
+            )
+            if st.form_submit_button("Mark complete"):
+                next_task = scheduler.mark_task_complete(pending_tasks[completion_index])
+                if next_task is None:
+                    st.session_state.completion_notice = "Task completed."
+                else:
+                    st.session_state.completion_notice = (
+                        f"Task completed. Next occurrence: {next_task.due_date} "
+                        f"at {next_task.scheduled_time:%H:%M}."
+                    )
+                # Rebuild choices immediately so completed tasks cannot remain selected.
+                st.rerun()
+
     task_rows = [
-        {"Pet": pet.name, "Task": task.title, "Time": task.scheduled_time.strftime("%H:%M"),
+        {"Pet": scheduler.get_pet_for_task(task).name, "Task": task.title,
+         "Date": str(task.due_date), "Time": task.scheduled_time.strftime("%H:%M"),
          "Minutes": task.duration_minutes, "Priority": task.priority,
          "Frequency": task.frequency, "Completed": task.completed}
-        for pet in pets for task in pet.get_tasks()
+        for task in visible_tasks
     ]
     if task_rows:
         st.table(task_rows)
     else:
-        st.info("No tasks yet. Add one above.")
+        st.info("No tasks match these filters.")
 
-st.subheader("Today's Schedule")
+st.subheader("Daily Schedule")
+st.caption("The daily plan includes all pets; task-list filters above only change the task view.")
+for warning in scheduler.detect_conflicts(plan_date):
+    st.warning(warning)
+st.caption("Warnings flag identical start times, including across pets. Review the listed activities before carrying out care; duration overlaps are not checked.")
 if st.button("Generate schedule", disabled=not owner.get_all_tasks()):
     st.session_state.show_schedule = True
 
 # Rebuild from the current owner to keep a displayed plan in sync with edits.
 if st.session_state.show_schedule:
-    scheduler = Scheduler(owner)
-    plan = scheduler.generate_daily_plan()
+    plan = scheduler.generate_daily_plan(plan_date)
     if plan:
         st.table([
-            {"Time": task.scheduled_time.strftime("%H:%M"),
+            {"Date": str(task.due_date), "Time": task.scheduled_time.strftime("%H:%M"),
              "Pet": scheduler.get_pet_for_task(task).name,
              "Task": task.title, "Minutes": task.duration_minutes,
              "Priority": task.priority}
             for task in plan
         ])
     else:
-        st.info("No pending tasks fit today's time budget.")
+        st.info("No pending tasks fit the time budget for this date.")
     st.write(scheduler.explain_plan())
