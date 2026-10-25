@@ -120,13 +120,38 @@ The Streamlit UI and Phase 1 UML draft were not changed in Phase 2.
 
 **a. What you tested**
 
-- What behaviors did you test?
-- Why were these tests important?
+Phase 5 planned five behavior groups: task/pet management, chronological daily
+planning, filtering, recurrence, and exact-time conflicts. The core suite in
+tests/test_pawpal.py now includes explicit sorting, next-day daily recurrence,
+and duplicate-time warning checks alongside empty-owner/empty-pet handling,
+midnight and end-of-day times, zero and exact budgets, skipping an oversized task
+after earlier work, independent collections, invalid durations, and rejected
+completion leaving state unchanged. The recurrence check crosses leap day and
+verifies the next occurrence retains its duration, priority, time, and pet.
+
+A separate testing chat reviewed existing coverage and proposed boundary cases.
+I accepted the partial-budget and stale-plan checks because they can expose bugs
+that a successful three-task demo would miss. Tests assert explicit expected
+results rather than reimplement sorting or date arithmetic. Parametrization runs
+one behavior with several meaningful inputs, such as zero/exact budgets or bad
+durations. Identity checks with `is` distinguish the original task from a newly
+created occurrence and confirm the correct pet holds that exact new object.
+
+The complete python -m pytest run passed 34 tests, including the earlier algorithm
+and Streamlit integration tests. No failures occurred during the Phase 5 runs,
+and no backend or UI changes were needed. The successful full terminal output is
+saved in the README.
 
 **b. Confidence**
 
-- How confident are you that your scheduler works correctly?
-- What edge cases would you test next if you had more time?
+Confidence Level: ★★★★☆ (4/5). The tests provide good confidence in the current
+in-memory rules, including boundary conditions and recurrence without duplicate
+successors. They do not establish production reliability for every input.
+Exact-start-time conflicts are intentionally narrower than duration overlaps;
+persistence across browser sessions and timezone/DST behavior are not supported.
+With more time, I would verify larger task collections and real-browser workflows,
+and test overlap/timezone behavior if those features are introduced. No later-phase
+features or UML revisions were added during this testing phase.
 
 ---
 

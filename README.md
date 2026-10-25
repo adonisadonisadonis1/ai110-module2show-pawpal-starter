@@ -134,16 +134,54 @@ Today's remaining schedule
 Remaining conflicts: none
 ```
 
-## 🧪 Testing PawPal+
+## Testing PawPal+
+
+From the repository directory, activate the environment and run the full suite:
 
 ```bash
-# Run backend, UI integration, and Phase 4 algorithm tests:
+source .venv/bin/activate
 python -m pytest
 ```
 
-Phase 2 verification: `python -m pytest -q` passed all 5 tests. These cover task
-completion, task addition, multi-pet aggregation through the Owner method,
-completed/over-budget task filtering, and preserving a task after an invalid edit.
+Phase 5 test plan covers five core behaviors:
+
+| Behavior | Happy paths and edge cases |
+| --- | --- |
+| Task and pet management | Adding/completing tasks, independent collections, duplicate-instance prevention, safe list copies, and invalid durations/edits. |
+| Chronological planning | Multiple pets, date/time order, stable ties, midnight/23:59, empty owners/pets, zero/exact budgets, skipping oversized tasks, and clearing stale plans. |
+| Filtering | Pet name, pending/completed status, selected date, unmatched names, and pets sharing a name. |
+| Recurrence | Daily/weekly/once, correct pet attachment, leap day and year rollover, early/late completion, duplicate completion prevention, and rejected-completion atomicity. |
+| Conflict warnings | Same-pet and cross-pet duplicate times, independent conflict groups, completion clearing a clash, and exclusion of completed tasks/other dates. |
+
+`tests/test_pawpal.py` contains the core Phase 5 checks, including explicit sorting,
+daily recurrence, and duplicate-time conflict tests. `tests/test_algorithms.py`
+retains the Phase 4 algorithm regressions; `tests/test_app.py` exercises Streamlit
+forms and state across reruns using AppTest. Dated edge-case tests use explicit
+dates, with no sleeps or dependence on the current day.
+
+Captured output from a successful `python -m pytest` run:
+
+```text
+============================= test session starts ==============================
+platform darwin -- Python 3.9.6, pytest-8.4.2, pluggy-1.6.0
+rootdir: /Users/adonis/Documents/ChatGPT/project 2/pawpal-starter
+collected 34 items
+
+tests/test_algorithms.py ............                                    [ 35%]
+tests/test_app.py ..                                                     [ 41%]
+tests/test_pawpal.py ....................                                [100%]
+
+============================== 34 passed in 1.36s ==============================
+```
+
+**Confidence Level: ★★★★☆ (4/5).** All 34 tests pass, covering the supported
+in-memory behavior and the existing UI bridge. This is strong evidence for the
+small app's current rules, not proof of every possible input. Conflict detection
+intentionally checks equal start times, not duration overlaps; persistence across
+browser sessions and timezone/DST scheduling are not supported or verified.
+Large collections and a real-browser end-to-end workflow would need further
+verification before a production reliability claim. Phase 5 changes only tests
+and documentation.
 
 ## 📐 Smarter Scheduling
 
