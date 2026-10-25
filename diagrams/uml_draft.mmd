@@ -1,0 +1,39 @@
+classDiagram
+    %% Phase 1 working blueprint; methods are empty Python stubs.
+    class Owner {
+        +str name
+        +int available_minutes
+        +List~str~ preferences
+        +List~Pet~ pets
+        +add_pet(Pet pet) None
+        +get_pets() List~Pet~
+    }
+    class Pet {
+        +str name
+        +str species
+        +List~Task~ tasks
+        +add_task(Task task) None
+        +get_tasks() List~Task~
+    }
+    class Task {
+        +str title
+        +int duration_minutes
+        +Literal~low_medium_high~ priority
+        +bool completed
+        +update(str title, int duration_minutes, Literal~low_medium_high~ priority) None
+        +mark_complete() None
+    }
+    class Scheduler {
+        +Owner owner
+        +List~Task~ daily_plan
+        +generate_daily_plan() List~Task~
+        +get_daily_plan() List~Task~
+        +get_pet_for_task(Task task) Optional~Pet~
+        +explain_plan() str
+    }
+    Owner "1" o-- "0..*" Pet : has pets
+    Pet "1" o-- "0..*" Task : has care tasks
+    Scheduler "0..1" --> "1" Owner : plans for
+    Scheduler "0..1" --> "0..*" Task : selects existing tasks
+    note for Task "priority is low, medium, or high"
+    note for Scheduler "Uses time budget, priorities, and preferences; logic deferred"
