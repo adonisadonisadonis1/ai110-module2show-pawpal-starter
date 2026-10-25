@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import time
+from dataclasses import dataclass, field, replace
+from datetime import date, time, timedelta
 from typing import List, Literal, Optional
 
 
@@ -17,6 +17,7 @@ class Task:
     completed: bool = False
     scheduled_time: time = time(9, 0)
     frequency: str = "daily"
+    due_date: date = field(default_factory=date.today)
 
     def __post_init__(self) -> None:
         """Reject missing descriptions, invalid durations, priorities, or times."""
@@ -28,19 +29,36 @@ class Task:
             raise ValueError("Task priority must be low, medium, or high.")
         if not isinstance(self.scheduled_time, time):
             raise ValueError("Task scheduled_time must be a datetime.time value.")
+        if self.frequency not in ("daily", "weekly", "once"):
+            raise ValueError("Task frequency must be daily, weekly, or once.")
+        if type(self.due_date) is not date:
+            raise ValueError("Task due_date must be a datetime.date value.")
 
     def update(self, title: str, duration_minutes: int,
                priority: Literal["low", "medium", "high"]) -> None:
         """Validate and update the description, duration, and priority together."""
         candidate = Task(title, duration_minutes, priority,
-                         self.completed, self.scheduled_time, self.frequency)
+                         self.completed, self.scheduled_time, self.frequency, self.due_date)
         self.title = candidate.title
         self.duration_minutes = candidate.duration_minutes
         self.priority = candidate.priority
 
-    def mark_complete(self) -> None:
-        """Mark this care task complete."""
+    def mark_complete(self, completed_on: Optional[date] = None) -> Optional[Task]:
+        """Complete once and return the next recurring occurrence, if applicable."""
+        if self.completed:
+            return None
+        completed_on = completed_on if completed_on is not None else date.today()
+        if type(completed_on) is not date:
+            raise ValueError("Completion date must be a datetime.date value.")
+        next_task = None
+        days = {"daily": 1, "weekly": 7}.get(self.frequency)
+        if days is not None:
+            next_task = replace(
+                self, completed=False,
+                due_date=max(self.due_date, completed_on) + timedelta(days=days),
+            )
         self.completed = True
+        return next_task
 
 
 @dataclass
@@ -96,11 +114,66 @@ class Scheduler:
     owner: Owner
     daily_plan: List[Task] = field(default_factory=list)
 
-    def generate_daily_plan(self) -> List[Task]:
-        """Select pending tasks chronologically while respecting the time budget."""
+    def sort_by_time(self, tasks: Optional[List[Task]] = None) -> List[Task]:
+        """Return tasks in stable date/time order without changing the input list."""
+        tasks = self.owner.get_all_tasks() if tasks is None else tasks
+        return sorted(tasks, key=lambda task: (task.due_date, task.scheduled_time))
+
+    def filter_tasks(self, pet_name: Optional[str] = None,
+                     completed: Optional[bool] = None,
+                     on_date: Optional[date] = None) -> List[Task]:
+        """Filter all pets' tasks by optional pet name, status, and due date."""
         tasks = self.owner.get_all_tasks()
-        pending = sorted((task for task in tasks if not task.completed),
-                         key=lambda task: task.scheduled_time)
+        pet_task_ids = None
+        if pet_name is not None:
+            pet_task_ids = {
+                id(task) for pet in self.owner.get_pets()
+                if pet.name.casefold() == pet_name.strip().casefold()
+                for task in pet.get_tasks()
+            }
+        return [task for task in tasks
+                if (pet_task_ids is None or id(task) in pet_task_ids)
+                and (completed is None or task.completed == completed)
+                and (on_date is None or task.due_date == on_date)]
+
+    def mark_task_complete(self, task: Task,
+                           completed_on: Optional[date] = None) -> Optional[Task]:
+        """Complete an owned task and automatically attach its next occurrence."""
+        owning_pets = [pet for pet in self.owner.get_pets()
+                       if any(existing is task for existing in pet.get_tasks())]
+        if not owning_pets:
+            raise ValueError("Task does not belong to this owner's pets.")
+        if len(owning_pets) > 1:
+            raise ValueError("A task instance must belong to only one pet.")
+        pet = owning_pets[0]
+        next_task = task.mark_complete(completed_on)
+        if next_task is not None:
+            pet.add_task(next_task)
+        self.daily_plan = []
+        return next_task
+
+    def detect_conflicts(self, on_date: Optional[date] = None) -> List[str]:
+        """Warn about pending tasks sharing an exact date/time across any pets."""
+        slots = {}
+        for pet in self.owner.get_pets():
+            for task in pet.get_tasks():
+                if task.completed or (on_date is not None and task.due_date != on_date):
+                    continue
+                slot = (task.due_date, task.scheduled_time)
+                slots.setdefault(slot, []).append(f"{pet.name}: {task.title}")
+        warnings = []
+        for (due_date, scheduled_time), labels in slots.items():
+            if len(labels) > 1:
+                warnings.append(
+                    f"Warning: {due_date.isoformat()} {scheduled_time:%H:%M} conflict: "
+                    + "; ".join(labels)
+                )
+        return warnings
+
+    def generate_daily_plan(self, on_date: Optional[date] = None) -> List[Task]:
+        """Select pending tasks due on a day in time order within the time budget."""
+        on_date = on_date if on_date is not None else date.today()
+        pending = self.sort_by_time(self.filter_tasks(completed=False, on_date=on_date))
         remaining = self.owner.available_minutes
         self.daily_plan = []
         for task in pending:
@@ -125,5 +198,6 @@ class Scheduler:
         minutes = sum(task.duration_minutes for task in self.daily_plan)
         return (f"Planned {len(self.daily_plan)} tasks totaling {minutes} of "
                 f"{self.owner.available_minutes} available minutes. "
+                "Only tasks due on the selected day are considered. "
                 "Tasks are ordered by scheduled time; completed tasks and tasks "
                 "that exceed the remaining budget are skipped.")

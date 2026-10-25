@@ -41,13 +41,46 @@ The UML and Python signatures were checked together after these design refinemen
 
 **a. Constraints and priorities**
 
-- What constraints does your scheduler consider (for example: time, priority, preferences)?
-- How did you decide which constraints mattered most?
+In Phase 4 the scheduler considers the selected due date, completion status, and
+the owner's available minutes. It sorts eligible tasks by date/time, then admits
+each task that fits the remaining budget. Pet and status filters can narrow the
+view independently. Priority and owner preferences are retained as data but do
+not change ranking yet. Restricting the plan to its selected date prevents a
+new recurring occurrence from appearing in today's plan.
 
 **b. Tradeoffs**
 
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+Phase 4 checks exact date/time matches rather than overlapping durations. Grouping
+pending tasks in a dictionary keyed by (due_date, scheduled_time) is easy to read
+and takes expected O(n) time, compared with O(n²) pairwise comparisons. A group
+with several tasks produces one readable warning listing every affected pet and
+task. This detects obvious clashes without blocking the plan, but an 08:00 walk
+lasting 30 minutes and an 08:15 feeding will not trigger a warning. A regression
+test records that deliberate limitation.
+
+Recurrence creates only the next occurrence when completing a task, keeping the
+completed original as history. Scheduling from the later of due date and completion
+date avoids an overdue backlog; the tradeoff is that completing a weekly task late
+can shift its weekday. Repeated completion is a no-op to avoid duplicate future
+tasks. Application code uses Scheduler.mark_task_complete() to both complete the
+task and attach its returned occurrence to the same pet.
+
+For the algorithm review, a separate planning chat compared dictionary grouping
+with nested pair checks. The implementation keeps an explicit grouping loop and
+warning-building loop for readability rather than compressing all work into one
+expression. Sorting uses Python's stable sorted() with a lambda key and returns
+a new list, so displaying a sorted view does not change the pets' task lists.
+Name filtering intentionally matches all pets sharing a name; object identity is
+used when completing a specific task so it attaches to the correct pet.
+
+The follow-up review of the completed conflict method suggested iterating through
+pets and their tasks directly instead of building a separate task-to-pet map and
+filtered list. I accepted that change: it removes intermediate allocations while
+keeping the same expected O(n) runtime. The review also reproduced incorrect
+labels when one Task instance was shared by two pets. Direct iteration fixes the
+labels, and completion now rejects ambiguous ownership before modifying the task.
+Two additional regression tests verify this case and separate, equal-valued tasks
+belonging to pets with the same name. The full suite passed 19 tests.
 
 ---
 
