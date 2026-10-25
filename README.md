@@ -42,33 +42,53 @@ pip install -r requirements.txt
 6. Connect your logic to the Streamlit UI in `app.py`.
 7. Refine UML so it matches what you actually built.
 
+## Phase 2 Implementation Summary
+
+`pawpal_system.py` implements four in-memory dataclasses. `Task` stores a description
+(`title`), duration in minutes, scheduled time, frequency, priority, and completion
+status. It supports validated edits and completion. `Pet` manages its tasks;
+`Owner` manages multiple pets and combines their tasks through `get_all_tasks()`.
+`Scheduler` calls that Owner method, orders pending tasks by scheduled time, and
+includes tasks that fit the remaining daily time budget. The plan retains the
+original task objects, and `get_pet_for_task()` identifies the pet for each entry.
+Methods have one-line docstrings.
+
+This is a basic CLI-first implementation. Frequency is descriptive metadata;
+there is no date-based recurrence engine. Priority and owner preferences are stored
+for later scheduling refinements but do not affect selection yet. Scheduled times
+are ordering labels; overlap resolution is not implemented. State lasts only for
+the current process. The Streamlit starter is unchanged.
+
+Run the demo from the repository directory:
+
+```bash
+source .venv/bin/activate
+python main.py
+```
+
 ## 🖥️ Sample Output
 
-Paste a sample of your app's CLI or Streamlit output here so a reader can see what a generated plan looks like:
+Captured from running `python main.py`:
 
-```
-# e.g.:
-# Daily plan for Biscuit (Golden Retriever):
-#   08:00 — Morning walk (30 min) [priority: high]
-#   09:00 — Feeding (10 min) [priority: high]
-#   ...
+```text
+Today's Schedule
+Owner: Jordan | Pets: Mochi, Luna
+08:00 | Mochi | Morning walk | 20 min | high priority | daily
+08:30 | Luna | Breakfast | 10 min | high priority | daily
+18:00 | Mochi | Evening grooming | 15 min | low priority | daily
+Planned 3 tasks totaling 45 of 60 available minutes. Tasks are ordered by scheduled time; completed tasks and tasks that exceed the remaining budget are skipped.
 ```
 
 ## 🧪 Testing PawPal+
 
 ```bash
-# Run the full test suite:
-pytest
-
-# Run with coverage:
-pytest --cov
+# Run the Phase 2 tests:
+python -m pytest
 ```
 
-Sample test output:
-
-```
-# Paste your pytest output here
-```
+Phase 2 verification: `python -m pytest -q` passed all 5 tests. These cover task
+completion, task addition, multi-pet aggregation through the Owner method,
+completed/over-budget task filtering, and preserving a task after an invalid edit.
 
 ## 📐 Smarter Scheduling
 

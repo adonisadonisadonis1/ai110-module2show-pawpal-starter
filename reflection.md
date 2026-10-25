@@ -55,13 +55,31 @@ The UML and Python signatures were checked together after these design refinemen
 
 **a. How you used AI**
 
-- How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
-- What kinds of prompts or questions were most helpful?
+For Phase 2, AI helped turn the four class skeletons into working Python,
+add scheduled times and frequency to Task, build a two-pet CLI demo, and draft
+quick pytest checks. The most useful requirement was that Scheduler must retrieve
+all tasks through Owner.get_all_tasks(). I accepted that structure because it
+keeps knowledge of the pets in Owner and makes the scheduler work across pets.
+I also accepted readable terminal rows with the time, pet name, description,
+duration, priority, and frequency, and one-line method docstrings.
 
 **b. Judgment and verification**
 
-- Describe one moment where you did not accept an AI suggestion as-is.
-- How did you evaluate or verify what the AI suggested?
+The Phase 1 blueprint exposed each pet's tasks but lacked an Owner method for
+aggregating them. For Phase 2, that design was revised to add get_all_tasks(),
+rather than letting Scheduler plan from a single pet. The implementation also
+uses object identity when finding a task's pet, so two pets can have distinct
+tasks with identical values. Advanced recurrence and preference-ranking behavior
+were kept out of this basic implementation; frequency and preferences are stored
+without claiming that those features work.
+
+Verification used the real output of python main.py: two pets and three tasks
+appeared in chronological order. python -m pytest -q passed five tests. In
+addition to the required completion and task-addition checks, a test wraps
+Owner.get_all_tasks() and confirms Scheduler calls it and includes both pets'
+tasks. Other checks cover completed/over-budget tasks and an invalid edit that
+must leave the original task unchanged. The captured demo output is in README.md.
+The Streamlit UI and Phase 1 UML draft were not changed in Phase 2.
 
 ---
 
